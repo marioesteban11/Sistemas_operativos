@@ -1,0 +1,6 @@
+Siempre después de hacer un Free(p) igualar P = Null para no liarla si se vuelve a utilizar ese puntero
+
+Para trazas fprintf(Stderr, ""); despues de stderr es igual que printf,
+
+
+
