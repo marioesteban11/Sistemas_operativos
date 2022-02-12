@@ -27,7 +27,7 @@ es_vocal(char *palabra)
 
 // realizamos el algoritmo de ordenación de insertion sort
 void
-insertion_sort(char *palabras[], int longitud)
+insertion_sort(char **palabras, int longitud)
 {
 	char *key;
 	int i, j;
