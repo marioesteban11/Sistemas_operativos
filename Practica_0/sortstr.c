@@ -63,7 +63,7 @@ main(int argc, char *argv[])
 {
 	if (argc <= 1) {
 		fprintf(stderr, "Introduce argmentos\n");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 	insertion_sort(argv, argc);
 	for (int i = 1; i < argc; i++) {
