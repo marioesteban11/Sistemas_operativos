@@ -8,34 +8,20 @@
 
 enum {
 
-	MAX = 100,
-	TOKENS = 10,
+	MENOR_CERO = -1,
+	NUMERO_INCORRECTO = -2,
+	TOKENS = 20,
 };
 
-struct Argumentos {
-
-	char *flags;
-	char *final;
-};
-
-void
-salida(int error)
-{
-	if (error > 0) {
-		printf("\n");
-		exit(EXIT_FAILURE);
-	} else {
-		exit(EXIT_SUCCESS);
-	}
-}
-
+//Ejecita con execv el proceso que viene de la línea de comandos de la terminal
+// con todos los parametros correspondientes
+// Ej: /bin/ls /tmp
 void
 funciones(char *script)
 {
 	int error;
 	char *final_ejecucion[TOKENS];
 
-	// Returns first token
 	char *rest = script, *token, *path;
 
 	int iterator = 0;
@@ -45,11 +31,9 @@ funciones(char *script)
 
 			final_ejecucion[iterator] = "my script";
 			path = token;
-			//fprintf(stderr, "HOLAAAAAAAAAAAAAAAAAAA  %s   %d ejecution %s y el path  %s \n", script, iterator, final_ejecucion[iterator], path);
 		} else {
 
 			final_ejecucion[iterator] = token;
-			//fprintf(stderr, "ADIOOOOOOOOOOOS  %s   %d  ejecution %s\n", script, iterator, final_ejecucion[iterator]);
 		}
 		final_ejecucion[iterator + 1] = NULL;
 		iterator++;
@@ -63,6 +47,7 @@ funciones(char *script)
 	}
 }
 
+//Creamos un proceso hijo y esperamos a que este muera para crear otro hijo
 void
 fork_comandos(char **comandos, int elementos, int numero_sleep)
 {
@@ -76,13 +61,10 @@ fork_comandos(char **comandos, int elementos, int numero_sleep)
 		case -1:
 			err(EXIT_FAILURE, "fork failed!");
 		case 0:
-
 			funciones(comandos[i]);
 			err(1, "exec failed");
 		default:
-			wtr =
-			    waitpid(child_pid, &wstatus,
-				    WCONTINUED | WUNTRACED);
+			wtr = waitpid(child_pid, &wstatus, 0);
 			if (wtr == -1) {
 				perror("waitpid");
 				exit(EXIT_FAILURE);
@@ -90,14 +72,32 @@ fork_comandos(char **comandos, int elementos, int numero_sleep)
 			sleep(numero_sleep);
 		}
 	}
+}
 
+//Comprobamos que el parametro que nos pasan por linea de comandos sea un numero
+long
+get_number_sleep(char *numero)
+{
+	long number_sleep;
+	char *ptr;
+
+	number_sleep = strtol(numero, &ptr, 10);
+
+	if (strcmp(ptr, "\0") != 0) {
+		number_sleep = NUMERO_INCORRECTO;
+	} else {
+		if (number_sleep <= 0) {
+			number_sleep = MENOR_CERO;
+		}
+	}
+
+	return number_sleep;
 }
 
 int
 main(int argc, char *argv[])
 {
-	int number_sleep = 0;
-	int error = 0;
+	long number_sleep = 0;
 
 	if (argc <= 2) {
 		fprintf(stderr,
@@ -105,15 +105,15 @@ main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	number_sleep = atoi(argv[1]);
+	number_sleep = get_number_sleep(argv[1]);
 
-	// SI el número del sleep es 0 falla
-	if (number_sleep <= 0) {
+	if (number_sleep < 0) {
 		fprintf(stderr,
 			"usage: ch varname varcontent [varname varcontent] ...\n");
 		exit(EXIT_FAILURE);
 	}
+
 	fork_comandos(argv, argc, number_sleep);
 
-	salida(error);
+	exit(EXIT_SUCCESS);
 }
