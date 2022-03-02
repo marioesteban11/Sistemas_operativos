@@ -51,6 +51,7 @@ funciones(char *script)
 void
 fork_comandos(char **comandos, int elementos, int numero_sleep)
 {
+
 	pid_t child_pid, wtr;
 	int i;
 	int wstatus;
@@ -69,6 +70,12 @@ fork_comandos(char **comandos, int elementos, int numero_sleep)
 				perror("waitpid");
 				exit(EXIT_FAILURE);
 			}
+			if (wstatus != 0) {
+
+				fprintf(stderr, "error %s\n", comandos[i]);
+				exit(EXIT_FAILURE);
+			}
+
 			sleep(numero_sleep);
 		}
 	}
