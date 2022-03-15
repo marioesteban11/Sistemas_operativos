@@ -11,20 +11,23 @@ void
 escritura_ceros(int fd2, long counter, char * fichero)
 {
 	char buf[sizeof(long)];
-	int no_leido = 0;
+	int no_leido ;
 	int no_escrito;
 	char * linea;
 	sprintf(buf, "%ld", counter);
 
+	//no_escrito = write(fd2, "dyrtfughijfdsetdf dsetdfgjhk", no_leido);
 	linea = (char *)malloc(((strlen(fichero) + strlen(buf)) * sizeof(char *)));
 	strcpy(linea, buf);
 	strcat(linea, " ");
 	strcat(linea, fichero);
 	strcat(linea, "\n");
 
-	printf("NUMERO DE CEROS en long %ld y en string: %s y se queda la linea: %s\n ", counter, buf, linea);
-	no_escrito = write(fd2, buf, no_leido);
-
+	//printf("NUMERO DE CEROS en long %ld y en string: %s y se queda la linea: %s abrimos el nombre del fichero final: %s\n ", counter, buf, linea, fichero_final);
+	no_leido = strlen(linea);
+	no_escrito = write(fd2, linea, no_leido);
+	
+	printf("Descriptor de fichero: %d y numero de bytes no escritos: %d\n", fd2, no_escrito);
 	if (no_escrito != no_leido){
 		warn("cant write");
 	}
@@ -81,7 +84,6 @@ read_directory(char *directorio)
 		err(1, "can't open output file");
 	}
 
-	write(fd2, "ahsdfhaksdfh", 0);
 	/* Abrimos el directorio */
 	dirp = opendir(directorio);
 	if (dirp == NULL){
@@ -93,7 +95,7 @@ read_directory(char *directorio)
 		if (direntp->d_name[0] != '.' && direntp->d_name[0] != 'z'){
 			ayuda = (char *)malloc(((strlen(direntp->d_name) + strlen(directorio)) * sizeof(char *)));
 			strcat(strcpy(ayuda, directorio), direntp->d_name);
-			fprintf(stderr, "FICHERO A ABRIR %s jajajjaj\n",  ayuda);
+			fprintf(stderr, "FICHERO A ABRIR %s\n",  ayuda);
 			fd1 = open( ayuda, O_RDONLY);
 			if (fd1 == -1) {
 				err(1, "can't open input file: %s", direntp->d_name);
