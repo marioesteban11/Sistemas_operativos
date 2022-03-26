@@ -1,3 +1,5 @@
-10485760 megas
-0 nada
-10 diez
+0	zamacenta.txt
+5242880	cincos
+10485760	megas
+0	nada
+10	diez

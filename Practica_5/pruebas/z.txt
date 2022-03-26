@@ -1,0 +1,5 @@
+0	a.txt
+10240	kilos
+0	iguana
+512	uno
+512000	locura.c

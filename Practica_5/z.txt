@@ -1,0 +1,4 @@
+0 zcount.c
+0 lol.txt
+0 zcount
+8192 zcount.o
