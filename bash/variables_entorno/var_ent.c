@@ -31,9 +31,5 @@ void set_variables_entorno(char * expresion){
 int
 main(int argc, char *argv[])
 {
-	
-
 	set_variables_entorno(argv[1]);
-
-    
 }
