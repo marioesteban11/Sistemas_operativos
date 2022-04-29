@@ -4,3 +4,4 @@ Para trazas fprintf(Stderr, ""); despues de stderr es igual que printf,
 
 
 
+gajkldfioashdfuahsdfuhus
