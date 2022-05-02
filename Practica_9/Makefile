@@ -5,7 +5,7 @@
 
 
 CC = gcc
-CFLAGS = -g -c -Wall -Wshadow -O2 -pthread
+CFLAGS = -g -Wall -Wshadow -O2 -pthread
 
 SRC_PROXY = stack.h stack.c
 SRC_1 = main.c $(SRC_PROXY)
@@ -17,4 +17,4 @@ all: $(OBJ1)
 	gcc ${CFLAGS} -o main $(OBJ1)
 
 clean:
-	$(RM) $(OBJ1) main
+	$(RM) $(OBJ1) main 

@@ -109,7 +109,7 @@ funciones(char *script)
 		
 		//printf("%s ", rest);
 		if (iterator == 0) {
-			final_ejecucion[iterator] = script;
+			final_ejecucion[iterator] = "my script";
 
 			if (token[0] == '$'){
 				char eliminado[strlen(token)-1];
@@ -204,7 +204,7 @@ crear_pipes(int **pipes, int numero_pipes){
 }
 
 void 
-pipe_inicial(int **pipes, int i, int numero_pipes)
+pipe_inicial(int ** pipes, int i, int numero_pipes)
 {
 	for (int j = 1; j < numero_pipes ; j ++){
 		close(pipes[j][READ_END]);
@@ -226,7 +226,12 @@ pipe_final(int ** pipes, int i)
 	close(pipes[i-1][WRITE_END]);
 	dup2(pipes[i-1][READ_END], STDIN_FILENO); 
 	close(pipes[i-1][READ_END]);
-	
+	int to_read = SIZE;
+	char buf[SIZE];
+	int no_leido;
+
+	read(0, buf, to_read);
+	//fprintf(stderr, "buff: %s\n", buf);
 }
 
 
@@ -255,38 +260,69 @@ void
 pipelines(int numero_entradas, char ** entradas)
 {
 	int status, num_pipes, num_funciones;
-	int pid;
+
 	num_pipes = numero_entradas - 1;
 	num_funciones = numero_entradas;
 
 	int **pipes = (int**)malloc((num_pipes)* sizeof(int *));
 	int *childs = (int*)malloc((num_funciones)* sizeof(int));
 	crear_pipes(pipes, num_pipes);
+    int i;
+    int child;
+	for(i=0;i<numero_entradas;i++){
+				
+				//Señales, accion por defecto
+				signal(SIGINT , SIG_DFL);
+				signal(SIGQUIT, SIG_DFL);
+				
+				
+				
+					// Hace un fork() para cada hijo. El numero va cambiando con los forks
+					//childs[i]=fork();		
+                    child = fork();		
+					if(child<0){ //Error fork
+						fprintf(stderr, "Falló el fork().\n%s\n", strerror(EXIT_FAILURE));
+						exit(1);
+					} else if (childs[i]==0){ // Sino error hace hijos
 
-	for (int i = 0; i < num_funciones; i++){
-    	//childs[i] = fork(); 
-		pid = fork();
-		//switch(childs[i]){
-		switch(pid){
-			case -1:
-				err(EXIT_FAILURE, "fork failed");
-			case 0:
-				if(i == 0 ) {
-					pipe_inicial(pipes, i, num_pipes);
-				}else if (i == num_pipes){
-					pipe_final(pipes, i);
-				}else {
-					pipes_intermedios(pipes, i, num_pipes);
-				}
-				funciones(entradas[i]);
-		}
-	}
-	//int to_read = SIZE;
-	//char buf[SIZE];
-	//read(0, buf, to_read);
-	//fprintf(stderr, "buff: %s\n", buf);
-	wait(&status);
-	//
+						if(i==0){ //Primer hjijo
+							close(pipes[i][0]);
+							dup2(pipes[i][1],1);
+							funciones(entradas[i]);
+
+							fprintf(stderr, "Error al ejecutar el comando: %s\n", strerror(EXIT_FAILURE));
+							exit(1);
+							
+						}else if(i==(numero_entradas-1)){	// Utimo hijo
+							close(pipes[i-1][1]);
+							dup2(pipes[i-1][0],0);
+							funciones(entradas[i]);
+
+							fprintf(stderr, "Error al ejecutar el comando: %s\n", strerror(EXIT_FAILURE));
+							exit(1);
+							
+						}else{	// Resto de hijos			
+							close(pipes[i][0]);	
+							close(pipes[i-1][1]);	
+							dup2(pipes[i-1][0],0);	
+							dup2(pipes[i][1],1);
+
+							funciones(entradas[i]);
+
+							fprintf(stderr, "Error al ejecutar el comando: %s\n", strerror(EXIT_FAILURE));
+							exit(1);
+							
+						}
+
+					}else{	//Padre
+						if(!(i==(numero_entradas-1))){ // Por esto la violacion del core
+							close(pipes[i][1]);
+						}
+					}
+						
+			}
+	waitpid(child,&status,0);
+	//wait(&status);
 	if (close(pipes[numero_entradas-2][READ_END]) == -1){
 		err(EXIT_FAILURE,"close failed");
 	}
@@ -366,6 +402,8 @@ mirar_utilidad(char *buff)
 			//fprintf(stderr, "COMANDOS NORMALES\n");
 			fork_comandos(buffer_real);
 		}
+
+		
 	}
 }
 

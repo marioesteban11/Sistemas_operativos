@@ -1,3 +1,4 @@
+#include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -5,50 +6,78 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <assert.h>
 
 #include "stack.h"
 
 
-//Puntero array, numero de elementos maximos y numero de elementos actuales
-// Si nos quedamos sin memoria se usa realloc
-Stack * newstack(int nelem)
+stack* create_stack(int max_size, int elemSize)
 {
-	void ** array_elem = (void **)malloc(nelem*sizeof(void*));
-
-	Stack * puntero_stack = (Stack*)malloc( sizeof(Stack) );
-	Stack *stack;
-
-	stack->max_elem = nelem;
-	stack->nelem = 0;
-	stack->elementos = array_elem;
-
-	return stack;
-
+	pthread_mutex_lock(&create);
+	stack *s = malloc(sizeof(stack));
+	assert(elemSize > 0);
+	s->elemSize = elemSize;
+	s->logLength = 0;
+	s->allocLength = max_size;
+	s->elems = malloc(max_size * elemSize);
+	assert(s->elems != NULL);
+	//fprintf(stderr, "STACK CREADA CON n_elementos: %d y esta vacía: %d", s->allocLength, is_empty(s));
+	pthread_mutex_unlock(&create);
+	return s;
 }
 
-// Si hay al menos un elemento la funcion devolvera false
-int is_empty(Stack *s)
+void free_stack(stack *s)
 {
-	if (s->nelem == 0){
-		return -1;
-	}else {
-		return 0;
+	free(s->elems);
+}
+
+
+int is_empty(const stack *s)
+{
+	return s->logLength == 0;
+}
+
+int number_elements(stack *s){
+
+	return s->logLength;
+}
+
+void push(stack *s, const void *elemAddr)
+{
+	pthread_mutex_lock(&push_stack);
+	void *destAddr;
+	if(s->logLength == s->allocLength){
+		s->allocLength *= 2;
+		s->elems = realloc(s->elems, s->allocLength * s->elemSize);
+		assert(s->elems != NULL);
 	}
+	
+	destAddr = (char *)s->elems + s->logLength * s->elemSize;
+	memcpy(destAddr, elemAddr, s->elemSize);
+	s->logLength++;
+	pthread_mutex_unlock(&push_stack);
 }
 
-// Devuelve el numero de elementos de la pila;
-int nelem(Stack *s)
+void pop(stack *s, void *elemAddr)
 {
-	return s->nelem;
+	pthread_mutex_lock(&pop_stack);
+	const void *sourceAddr;
+	assert(!is_empty(s));
+	int real = s->logLength;
+	int funcion = number_elements(s);
+	printf("log_lenght en funcion: %d y en realidad: %d\n", funcion, real);
+	s->logLength--;
+	sourceAddr = (const char *)s->elems + s->logLength * s->elemSize;
+	memcpy(elemAddr, sourceAddr, s->elemSize);
+	pthread_mutex_unlock(&pop_stack);
 }
 
-// Inserta un elemento en la cola (al final)
-void push(Stack *s, void *p);
 
 
-// Quita un elemento de la pila
-// Hacer un cast al tipo de datos de lo que quieras en la salida del pop, ya que voud * ke gusta a tidim oeri no al reves
-void *pop(Stack *s); 
-
-
-void freestack(Stack *s);
+//void recorrer_stack(stack *s)
+//{
+//	for (int i = 0; i < s->logLength; i++){
+//		fprintf(stderr, "%d \t", s->elems[i]);
+//	}
+//
+//}

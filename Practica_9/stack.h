@@ -1,23 +1,19 @@
+typedef struct{
+    void *elems;
+    int elemSize;
+    int logLength;
+    int allocLength;
+}stack;
 
+pthread_mutex_t create;
+pthread_mutex_t push_stack;
+pthread_mutex_t pop_stack;
 
-struct Valor{
-  int v;
-  int id;
-};
+stack* create_stack( int max_size, int elemSize);
+void free_stack(stack *s);
+int is_empty(const stack *s);
+void push(stack *s, const void *elemAddr);
+void pop(stack *s, void *elemAddr);
+int number_elements(stack *s);
 
-struct Stack{
-    int nelem;
-    int max_elem;
-    void *elementos;
-};
-
-typedef struct Stack Stack; 
-
-int is_empty(Stack *s);
-int nelem(Stack *s);
-void push(Stack *s, void *p);
-void *pop(Stack *s); 
-
-Stack * newstack(int nelem);
-
-void freestack(Stack *s);
+void recorrer_stack(stack *s);

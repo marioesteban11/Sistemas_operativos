@@ -30,7 +30,6 @@ funciones(char *script)
 	char rutas[NUMERO_RUTAS][MAX_COMANDO] = {{"/bin/"}, {"/usr/bin/"} };
 
 	while ((token = strtok_r(rest, " ", &rest))) {
-		
 		//printf("%s ", rest);
 		if (iterator == 0) {
 			final_ejecucion[iterator] = "my script";
@@ -134,7 +133,7 @@ pipelines(int numero_entradas, char ** entradas)
 	int status;
 	int **pipes = (int**)malloc((numero_entradas - 2)* sizeof(int *));
 	int *childs = (int*)malloc((numero_entradas - 1)* sizeof(int));
-	
+	fprintf(stderr, "emtradas: %d\n", numero_entradas);
 	crear_pipes(pipes, numero_entradas-2);
 
 	for (int i = 0; i < numero_entradas - 1; i++){
@@ -167,10 +166,6 @@ pipelines(int numero_entradas, char ** entradas)
 int
 main(int argc, char *argv[])
 {
-	if (argc != 4){
-		fprintf(stderr, "Numero de argumentos incorrecto\n");
-		exit(EXIT_FAILURE);
-	}
 	pipelines(argc, argv);
 
 	exit(EXIT_SUCCESS);
