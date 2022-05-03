@@ -19,14 +19,47 @@ elimina_caracter(char *original, char * eliminado){
     }
 }
 
+char *
+get_command(char *script) {
+
+	char *token;
+    char *rest = script;
+    int mayor = 1000, menor = 1000;
+    //token = strtok_r(rest, ">", &rest);
+    
+    for (int i = 0; i < strlen(script); i++)
+    {
+        if (script[i] == '<'){
+            menor = i;
+        }
+        if (script[i] == '>'){
+            mayor = i;
+        }
+    }
+    fprintf(stderr, "MAYOR: %d, MENOR: %d\n",mayor, menor );
+    if (menor < mayor || mayor == 0 ){
+        printf("arriba\n");
+        token = strtok_r(rest, "<", &rest);
+    }else if (menor > mayor || menor ==  0 ){
+        printf("abajo\n");
+        token = strtok_r(rest, ">", &rest);
+    }
+}
+
+
 int
 main(int argc, char *argv[])
 {    
-    char prueba[8] = "$pepel";
-    char eliminado[strlen(prueba-1)];
+    //char prueba[8] = "$pepel";
+    //char eliminado[strlen(prueba-1)];
+//
+    //elimina_caracter(prueba, eliminado);
+//
+    //printf("ORIGINAL:%s   , MANEJADO:%s \n", prueba, eliminado);
+    
+    get_command(argv[1]);
 
-    elimina_caracter(prueba, eliminado);
 
-    printf("ORIGINAL:%s   , MANEJADO:%s \n", prueba, eliminado);
+    printf("%s\n", argv[1]);
     return 0;
 }

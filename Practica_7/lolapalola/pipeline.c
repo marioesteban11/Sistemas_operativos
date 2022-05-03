@@ -148,6 +148,7 @@ pipelines(int numero_entradas, char ** entradas)
 					pipe_final(pipes, i);
 				}else {
 					pipes_intermedios(pipes, i, numero_entradas-2);
+					printf("agsdfgaysdhgfaiusdfy aeyfaesgf wqerywae r\n");
 				}
 				funciones(entradas[i+1]);
 		}

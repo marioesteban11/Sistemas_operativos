@@ -10,7 +10,6 @@
 #include <sys/wait.h>
 
 //access para ver si la ruta es accesible para nosotros
-
 enum {
 	SIZE = 8 * 1024,
 	MAX_STDIN = 100,
@@ -21,6 +20,13 @@ enum {
 	READ_END = 0,
 	WRITE_END = 1,
 };
+
+struct redireccion
+{
+	int fd;
+	char restante[MAX_COMANDO];
+};
+
 
 void 
 liberar_argumentos(char ** argumentos, int numero)
@@ -52,7 +58,38 @@ get_num_tokens(char *path, char *separacion)
     return num_tokens;
 }
 
+int
+copy(int desc_entrada, int desc_salida)
+{
+	int to_read = SIZE;
+	char buf[SIZE];
+	int no_leido;
+	int done = 0;
+	int total = 0, no_escrito = 0;
+	int count_bytes = -1;
 
+	while (!done) {
+		to_read = SIZE;
+		if (count_bytes != -1) {
+			to_read = count_bytes - total;
+		}
+		no_leido = read(desc_entrada, buf, to_read);
+		if (no_leido < 0) {
+			err(1, "can't read input file");
+		} else if (no_leido == 0) {
+			done = 1;
+		} else {
+			no_escrito = write(desc_salida, buf, no_leido);
+			if (no_escrito != no_leido) {
+				warn("cant write");
+			}
+			total += no_leido;
+			done = count_bytes != -1 && count_bytes == total;
+		}
+
+	}
+	return total;
+}
 
 void
 crear_string(char *path, char **lista_path, int num_pipes, char *separacion)
@@ -81,13 +118,119 @@ void set_variables_entorno(char * expresion){
 	token = strtok_r(rest, "=", &enviroment);
 
 	setenv(token, enviroment, 1);
+}
 
-	//printf("VARIABLE DE ENTORNO: %s valor de la variable de entornos %s \n",token, getenv(token));
-	//printf("CHAR PPAL: %s, char secundario %s y rest %s y environment %s\n", expresion, token, rest, enviroment );
+
+struct redireccion 
+get_dev_null(char * script)
+{
+	struct redireccion dev_null;
+	
+	char *final_fichero;
+	char *rest = script;
+	char dev = '&';
+	char *dev_pointer = "&";
+	char *token;
+	final_fichero = strrchr(script, dev);
+	int fd = 1;
+	token = strtok_r(rest, dev_pointer, &rest);
+	if (final_fichero != NULL) {
+		fd = open("/dev/null", O_WRONLY , 0664);
+		snprintf(dev_null.restante, MAX_COMANDO, "%s", dev_pointer);
+		if (fd == -1){
+			fprintf(stderr, "error");
+		}
+	}else {
+		snprintf(dev_null.restante, MAX_COMANDO, "%s", token);
+	}
+
+	dev_null.fd = fd;
+	
+	return dev_null;
+}
+
+
+
+struct redireccion
+detect_fichero_salida(char *script)
+{
+	struct redireccion fichero;
+	char *final_fichero;
+	char *rest = script;
+	char * token;
+	char dev = '>';
+	char *dev_pointer = ">";
+
+	final_fichero = strrchr(script, dev);
+
+	token = strtok_r(rest, dev_pointer, &rest);
+	token = strtok_r(rest, " ", &rest);
+	int fd = 1;
+
+	if (final_fichero != NULL) {
+		fd = open(token, O_WRONLY |O_CREAT | O_TRUNC, 0664);
+		if (fd < 0){
+			fprintf(stderr, "error");
+		}
+	}
+	fichero.fd = fd;
+	snprintf(fichero.restante, MAX_COMANDO, "%s", token);
+	
+	return fichero;
+}
+
+struct redireccion
+detect_fichero_entrada(char *script)
+{
+	struct redireccion fichero;
+	char *final_fichero;
+	char *rest = script;
+	char * token;
+	char dev = '<';
+	char *dev_pointer = "<";
+	
+	final_fichero = strrchr(script, dev);
+	token = strtok_r(rest, dev_pointer, &rest);
+	token = strtok_r(rest, " ", &rest);
+	int fd = 1;
+	if (final_fichero != NULL) {
+		fd = open(token, O_RDONLY);
+		//fprintf(stderr, "fd salida: %d, con token: %s\n", fichero.fd, token);
+		if (fd == -1){
+			fprintf(stderr, "error");
+		}
+	}
+	fichero.fd = fd;
+	snprintf(fichero.restante, MAX_COMANDO, "%s", token);
+	return fichero;
 }
 
 void
-funciones(char *script)
+get_command(char *script) 
+{
+
+    char *rest = script;
+    int mayor = 1000, menor = 1000;
+    //token = strtok_r(rest, ">", &rest);
+    
+    for (int i = 0; i < strlen(script); i++)
+    {
+        if (script[i] == '<'){
+            menor = i;
+        }
+        if (script[i] == '>'){
+            mayor = i;
+        }
+    }
+    if (menor < mayor || mayor == 0 ){
+        strtok_r(rest, "<", &rest);
+    }else if (menor > mayor || menor ==  0 ){
+        strtok_r(rest, ">", &rest);
+    }
+}
+
+void
+exec_comando(char *script)
 {
 	//int error;
 	char *final_ejecucion[TOKENS];
@@ -168,25 +311,94 @@ funciones(char *script)
 void
 fork_comandos(char *comandos )
 {
-
 	pid_t child_pid, wtr;
+	struct redireccion dev_null;
+	struct redireccion fichero_salida;
+	struct redireccion fichero_entrada;
+	int fd[2], fd2[2];
 	int wstatus;
+	char copia_entrada[strlen(comandos)]; 
+	char copia_salida[strlen(comandos)];
+
+	snprintf(copia_salida, strlen(comandos)+1, "%s", comandos);
+	snprintf(copia_entrada, strlen(comandos)+1, "%s", comandos);
+	dev_null = get_dev_null(comandos);
+	fichero_salida = detect_fichero_salida(copia_salida);
+	fichero_entrada = detect_fichero_entrada(copia_entrada);
+
+
+	if(pipe(fd) < 0){
+		err(EXIT_FAILURE, "cannot make a pipe");
+	}
+	if(pipe(fd2) < 0){
+		err(EXIT_FAILURE, "cannot make a pipe");
+	}
+
+	//fprintf(stderr, "dev_null: %s against fichero_salida: %s, fichero entrada: %s\n", dev_null.restante, fichero_salida.restante, fichero_entrada.restante);
+	//fprintf(stderr, "comando: %s, con devnull = %d, %s\n", comandos, dev_null.fd, dev_null.restante);
+	//fprintf(stderr, "cosas restantes: dev: %s, salida: %s, entrada :%s\n", comandos, copia_salida, copia_entrada);
+	fprintf(stderr, "fd salida: %d, fd entrada: %d\n", fichero_salida.fd, fichero_entrada.fd);
 	child_pid = fork();
 	switch (child_pid) {
 	case -1:
 		err(EXIT_FAILURE, "fork failed!");
 	case 0:
+		if (fichero_salida.restante != NULL){
+			get_command(copia_salida);
+			comandos = copia_salida;
+			close(fd2[READ_END]);
+			dup2(fd2[WRITE_END], WRITE_END);
+			close(fd2[WRITE_END]);
+		}
+		if (fichero_entrada.restante != NULL)
+		{
+			get_command(copia_entrada);
+			comandos = copia_entrada;
+			close(fd[1]);
+			dup2(fd[0], 0);
+			close(fd[1]);
+		}
+		if (strcmp(dev_null.restante, comandos) != 0)
+		{
+			dup2(dev_null.fd, 1);
+		}
 		
-		funciones(comandos);
+		exec_comando(comandos);
 		err(1, "exec failed");
 	default:
+		
+		if (fichero_entrada.restante != NULL && fichero_entrada.fd != 1){
+			close(fd[0]);
+			copy(fichero_entrada.fd, fd[1]);
+			close(fd[1]);
+		}else{
+			close(fd[1]);
+			close(fd[0]);
+		}
+		if (fichero_salida.restante != NULL && fichero_salida.fd != 1){
+			close(fd2[1]);
+			//dup2(fd2[READ_END], READ_END);
+			copy(fd2[0], fichero_salida.fd);
+			close(fd2[0]);
+		}else{
+			close(fd2[1]);
+			close(fd2[0]);
+		}
 		wtr = waitpid(child_pid, &wstatus, 0);
 		if (wtr == -1) {
 			perror("waitpid");
 			exit(EXIT_FAILURE);
 		}
 	}
-	
+	if (dev_null.fd != 1){
+		close(dev_null.fd);
+	}
+	if (fichero_salida.fd != 1){
+		close(fichero_salida.fd);
+	}
+	if (fichero_salida.fd != 1){
+		close(fichero_entrada.fd);
+	}
 }
 
 
@@ -226,7 +438,6 @@ pipe_final(int ** pipes, int i)
 	close(pipes[i-1][WRITE_END]);
 	dup2(pipes[i-1][READ_END], STDIN_FILENO); 
 	close(pipes[i-1][READ_END]);
-	
 }
 
 
@@ -256,6 +467,8 @@ pipelines(int numero_entradas, char ** entradas)
 {
 	int status, num_pipes, num_funciones;
 	int pid;
+	struct redireccion dev_null;
+
 	num_pipes = numero_entradas - 1;
 	num_funciones = numero_entradas;
 
@@ -264,32 +477,39 @@ pipelines(int numero_entradas, char ** entradas)
 	crear_pipes(pipes, num_pipes);
 
 	for (int i = 0; i < num_funciones; i++){
-    	//childs[i] = fork(); 
-		pid = fork();
-		//switch(childs[i]){
-		switch(pid){
+    	childs[i] = fork(); 
+		//pid = fork();
+		switch(childs[i]){
+		//switch(pid){
 			case -1:
 				err(EXIT_FAILURE, "fork failed");
 			case 0:
+
 				if(i == 0 ) {
 					pipe_inicial(pipes, i, num_pipes);
 				}else if (i == num_pipes){
 					pipe_final(pipes, i);
+					dev_null = get_dev_null(entradas[i]);
+					// fprintf(stderr, "entradas[i]: %s, con fd: %d\n", entradas[i], dev_null.fd);
+					dup2(dev_null.fd, 1);
 				}else {
 					pipes_intermedios(pipes, i, num_pipes);
 				}
-				funciones(entradas[i]);
+				exec_comando(entradas[i]);
 		}
 	}
-	//int to_read = SIZE;
-	//char buf[SIZE];
-	//read(0, buf, to_read);
-	//fprintf(stderr, "buff: %s\n", buf);
-	wait(&status);
-	//
-	if (close(pipes[numero_entradas-2][READ_END]) == -1){
-		err(EXIT_FAILURE,"close failed");
+	for (int i = 0; i < num_pipes; i++){
+		close(pipes[i][0]);
+		close(pipes[i][1]);
 	}
+	for (int i = 0; i < num_funciones; i++){
+		pid = waitpid(childs[i], &status, 0);
+		if (pid == -1) {
+			perror("waitpid");
+			exit(EXIT_FAILURE);
+		}
+	}
+	
 	//Liberamos toda la memoria utilizada
 	liberar_pipes(pipes, numero_entradas - 2);
 	free(pipes);
