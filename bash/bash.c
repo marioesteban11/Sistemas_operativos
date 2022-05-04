@@ -307,6 +307,25 @@ exec_comando(char *script)
 	execv(ruta_especifica, final_ejecucion);
 }
 
+void
+cerrar_descriptores(int dev_null, int fichero_entrada,int fichero_salida)
+{
+	if (dev_null != 1){
+		if(close(dev_null) < 0){
+			perror("Error al cerrar fichero\n");
+		}
+	}
+	if (fichero_entrada != 1){
+		if(close(fichero_entrada) < 0){
+			perror("Error al cerrar fichero\n");
+		}
+	}
+	if (fichero_salida != 1){
+		if(close(fichero_salida) < 0){
+			perror("Error al cerrar fichero\n");
+		}
+	}
+}
 //Creamos un proceso hijo y esperamos a que este muera para crear otro hijo
 void
 fork_comandos(char *comandos )
@@ -334,73 +353,71 @@ fork_comandos(char *comandos )
 		err(EXIT_FAILURE, "cannot make a pipe");
 	}
 
-	//fprintf(stderr, "dev_null: %s against fichero_salida: %s, fichero entrada: %s\n", dev_null.restante, fichero_salida.restante, fichero_entrada.restante);
-	//fprintf(stderr, "comando: %s, con devnull = %d, %s\n", comandos, dev_null.fd, dev_null.restante);
-	//fprintf(stderr, "cosas restantes: dev: %s, salida: %s, entrada :%s\n", comandos, copia_salida, copia_entrada);
-	fprintf(stderr, "fd salida: %d, fd entrada: %d\n", fichero_salida.fd, fichero_entrada.fd);
 	child_pid = fork();
 	switch (child_pid) {
 	case -1:
 		err(EXIT_FAILURE, "fork failed!");
 	case 0:
-		if (fichero_salida.restante != NULL){
+		if (fichero_salida.restante != NULL && fichero_salida.fd != 1){
 			get_command(copia_salida);
 			comandos = copia_salida;
 			close(fd2[READ_END]);
 			dup2(fd2[WRITE_END], WRITE_END);
 			close(fd2[WRITE_END]);
+		}else {
+			close(fd2[READ_END]);
+			close(fd2[WRITE_END]);
 		}
-		if (fichero_entrada.restante != NULL)
-		{
+
+		if (fichero_entrada.restante != NULL && fichero_entrada.fd != 1){
 			get_command(copia_entrada);
 			comandos = copia_entrada;
-			close(fd[1]);
-			dup2(fd[0], 0);
-			close(fd[1]);
+			close(fd[WRITE_END]);
+			dup2(fd[READ_END], READ_END);
+			close(fd[READ_END]);
+		}else {
+			close(fd[READ_END]);
+			close(fd[WRITE_END]);
 		}
+		
 		if (strcmp(dev_null.restante, comandos) != 0)
 		{
-			dup2(dev_null.fd, 1);
+			dup2(dev_null.fd, WRITE_END);
 		}
 		
 		exec_comando(comandos);
 		err(1, "exec failed");
 	default:
-		
 		if (fichero_entrada.restante != NULL && fichero_entrada.fd != 1){
-			close(fd[0]);
-			copy(fichero_entrada.fd, fd[1]);
-			close(fd[1]);
+			close(fd[READ_END]);
+			copy(fichero_entrada.fd, fd[WRITE_END]);
+			close(fd[WRITE_END]);
 		}else{
-			close(fd[1]);
-			close(fd[0]);
+			close(fd[WRITE_END]);
+			close(fd[READ_END]);
 		}
+		
 		if (fichero_salida.restante != NULL && fichero_salida.fd != 1){
-			close(fd2[1]);
+			close(fd2[WRITE_END]);
 			//dup2(fd2[READ_END], READ_END);
-			copy(fd2[0], fichero_salida.fd);
-			close(fd2[0]);
+			copy(fd2[READ_END], fichero_salida.fd);
+			close(fd2[READ_END]);
 		}else{
-			close(fd2[1]);
-			close(fd2[0]);
+			close(fd2[WRITE_END]);
+			close(fd2[READ_END]);
 		}
+		
 		wtr = waitpid(child_pid, &wstatus, 0);
+		
 		if (wtr == -1) {
 			perror("waitpid");
 			exit(EXIT_FAILURE);
 		}
 	}
-	if (dev_null.fd != 1){
-		close(dev_null.fd);
-	}
-	if (fichero_salida.fd != 1){
-		close(fichero_salida.fd);
-	}
-	if (fichero_salida.fd != 1){
-		close(fichero_entrada.fd);
-	}
+	
+	cerrar_descriptores(dev_null.fd, fichero_entrada.fd, fichero_salida.fd);
+	
 }
-
 
 // Creamos tantos pipes comocomandos -1 tengamos
 void 
@@ -468,30 +485,47 @@ pipelines(int numero_entradas, char ** entradas)
 	int status, num_pipes, num_funciones;
 	int pid;
 	struct redireccion dev_null;
+	struct redireccion fichero_salida;
+	struct redireccion fichero_entrada;
+	int longitud_ult_elem = strlen(entradas[numero_entradas-1]);
+
+	char copia_entrada[longitud_ult_elem]; 
+	char copia_salida[longitud_ult_elem];
+
+	snprintf(copia_salida, longitud_ult_elem+1, "%s", entradas[numero_entradas-1]);
+	snprintf(copia_entrada, longitud_ult_elem+1, "%s", entradas[numero_entradas-1]);
+	fichero_entrada = detect_fichero_entrada(entradas[numero_entradas-1]);
+	fichero_salida = detect_fichero_salida(entradas[numero_entradas-1]);
 
 	num_pipes = numero_entradas - 1;
 	num_funciones = numero_entradas;
-
+	fprintf(stderr, "ULTIMA COSA: %s\n", entradas[numero_entradas-1]);
 	int **pipes = (int**)malloc((num_pipes)* sizeof(int *));
 	int *childs = (int*)malloc((num_funciones)* sizeof(int));
 	crear_pipes(pipes, num_pipes);
-
+	
 	for (int i = 0; i < num_funciones; i++){
     	childs[i] = fork(); 
-		//pid = fork();
 		switch(childs[i]){
-		//switch(pid){
 			case -1:
 				err(EXIT_FAILURE, "fork failed");
 			case 0:
 
 				if(i == 0 ) {
+					if (fichero_entrada.restante != NULL && fichero_entrada.fd != 1){
+						int a;
+					}
 					pipe_inicial(pipes, i, num_pipes);
 				}else if (i == num_pipes){
 					pipe_final(pipes, i);
+					if (fichero_salida.restante != NULL && fichero_salida.fd != 1){
+						int a;
+					}
 					dev_null = get_dev_null(entradas[i]);
-					// fprintf(stderr, "entradas[i]: %s, con fd: %d\n", entradas[i], dev_null.fd);
-					dup2(dev_null.fd, 1);
+
+					if (strcmp(dev_null.restante, entradas[i]) != 0){
+						dup2(dev_null.fd, WRITE_END);
+					}
 				}else {
 					pipes_intermedios(pipes, i, num_pipes);
 				}
@@ -580,13 +614,13 @@ mirar_utilidad(char *buff)
 				change_directory(getenv("HOME"));
 			}else {
 				change_directory(token_2);
-			}	
-			
+			}
 		}else {
 			//fprintf(stderr, "COMANDOS NORMALES\n");
 			fork_comandos(buffer_real);
 		}
 	}
+	
 }
 
 int
@@ -599,7 +633,5 @@ main(int argc, char *argv[])
         fgets(buf, MAX_STDIN, stdin);
 
 		mirar_utilidad(buf);
-		//fork_comandos(buf);
-        //printf("string is: %s\n", buf);
     }
 }

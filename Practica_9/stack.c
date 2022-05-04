@@ -21,7 +21,8 @@ stack* create_stack(int max_size, int elemSize)
 	s->allocLength = max_size;
 	s->elems = malloc(max_size * elemSize);
 	assert(s->elems != NULL);
-	//fprintf(stderr, "STACK CREADA CON n_elementos: %d y esta vacía: %d", s->allocLength, is_empty(s));
+	
+	
 	pthread_mutex_unlock(&create);
 	return s;
 }
@@ -55,6 +56,7 @@ void push(stack *s, const void *elemAddr)
 	destAddr = (char *)s->elems + s->logLength * s->elemSize;
 	memcpy(destAddr, elemAddr, s->elemSize);
 	s->logLength++;
+	//fprintf(stderr, "LOG LENGTH %d\n", s->logLength);
 	pthread_mutex_unlock(&push_stack);
 }
 
@@ -63,9 +65,6 @@ void pop(stack *s, void *elemAddr)
 	pthread_mutex_lock(&pop_stack);
 	const void *sourceAddr;
 	assert(!is_empty(s));
-	int real = s->logLength;
-	int funcion = number_elements(s);
-	printf("log_lenght en funcion: %d y en realidad: %d\n", funcion, real);
 	s->logLength--;
 	sourceAddr = (const char *)s->elems + s->logLength * s->elemSize;
 	memcpy(elemAddr, sourceAddr, s->elemSize);

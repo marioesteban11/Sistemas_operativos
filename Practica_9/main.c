@@ -23,30 +23,27 @@ pthread_mutex_t mutex;
 
 void *fn(void *p)
 {
-	int val;
+	
 	int max_size = 50;
 	int id;
 	stack *intStack;
-	valor *stack_valor; 
+	//valor *stack_valor; 
 	id = *(int*)p;
 	intStack = create_stack( max_size, sizeof(int));
 	//fprintf(stderr, "HILO :%d\n", id);
 	//stack_valor->id = id;
-	for(val = 0; val < 10; val++)
-	{
+	for(int val = 0; val < 10; val++){
 		push(intStack, &val);
 	}
 
-	for(val = 5; val >= 0; val--)
-	{
-		push(intStack, &val);
-		printf("Value Poped: %d from thread: %d\n", val, id);
+	for(int i = 5; i >= 0; i--){
+		pop(intStack, &i);
+		printf("Value Poped: %d from thread: %d\n", i, id);
 	}
 
-	//pthread_mutex_lock(&mutex);
+	pthread_mutex_lock(&push_stack);
 	printf("Elementos restantes: %d, del hilo: %d\n", number_elements(intStack), id);
-	//pthread_mutex_unlock(&mutex);
-
+	pthread_mutex_unlock(&push_stack);
 	free_stack(intStack);
 	
 	return NULL;
