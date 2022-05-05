@@ -138,7 +138,7 @@ get_dev_null(char * script)
 		fd = open("/dev/null", O_WRONLY , 0664);
 		snprintf(dev_null.restante, MAX_COMANDO, "%s", dev_pointer);
 		if (fd == -1){
-			fprintf(stderr, "error");
+			fprintf(stderr, "error al abrir el fichero dev_null");
 		}
 	}else {
 		snprintf(dev_null.restante, MAX_COMANDO, "%s", token);
@@ -170,7 +170,7 @@ detect_fichero_salida(char *script)
 	if (final_fichero != NULL) {
 		fd = open(token, O_WRONLY |O_CREAT | O_TRUNC, 0664);
 		if (fd < 0){
-			fprintf(stderr, "error");
+			fprintf(stderr, "error al abrir el fichero de salida ");
 		}
 	}
 	fichero.fd = fd;
@@ -188,16 +188,16 @@ detect_fichero_entrada(char *script)
 	char * token;
 	char dev = '<';
 	char *dev_pointer = "<";
-	
+	//fprintf(stderr, "SCRIPT:%s\n", script);
 	final_fichero = strrchr(script, dev);
 	token = strtok_r(rest, dev_pointer, &rest);
 	token = strtok_r(rest, " ", &rest);
 	int fd = 1;
-	if (final_fichero != NULL) {
+	if (final_fichero != NULL){
 		fd = open(token, O_RDONLY);
-		//fprintf(stderr, "fd salida: %d, con token: %s\n", fichero.fd, token);
+		//fprintf(stderr, "fd salida: %d, con token: %s\n", fd, token);
 		if (fd == -1){
-			fprintf(stderr, "error");
+			fprintf(stderr, "error al abrir el fichero de entrada");
 		}
 	}
 	fichero.fd = fd;
@@ -232,7 +232,6 @@ get_command(char *script)
 void
 exec_comando(char *script)
 {
-	//int error;
 	char *final_ejecucion[TOKENS];
 
 	char *rest = script, *token;
@@ -240,7 +239,6 @@ exec_comando(char *script)
 	char ruta_especifica [MAX_COMANDO];
 	char *path, separar_path[2] = ":";
 	path = getenv("PATH");
-
 	int num_paths = 0;
 
 	num_paths = get_num_tokens(path, separar_path);
@@ -308,21 +306,21 @@ exec_comando(char *script)
 }
 
 void
-cerrar_descriptores(int dev_null, int fichero_entrada,int fichero_salida)
+cerrar_descriptores(int dev_null, int fichero_entrada, int fichero_salida)
 {
 	if (dev_null != 1){
 		if(close(dev_null) < 0){
-			perror("Error al cerrar fichero\n");
+			perror("Error al cerrar fichero dev_null");
 		}
 	}
 	if (fichero_entrada != 1){
 		if(close(fichero_entrada) < 0){
-			perror("Error al cerrar fichero\n");
+			perror("Error al cerrar fichero entrada");
 		}
 	}
 	if (fichero_salida != 1){
 		if(close(fichero_salida) < 0){
-			perror("Error al cerrar fichero\n");
+			perror("Error al cerrar fichero salida");
 		}
 	}
 }
@@ -496,56 +494,77 @@ pipelines(int numero_entradas, char ** entradas)
 	snprintf(copia_entrada, longitud_ult_elem+1, "%s", entradas[numero_entradas-1]);
 	fichero_entrada = detect_fichero_entrada(entradas[numero_entradas-1]);
 	fichero_salida = detect_fichero_salida(entradas[numero_entradas-1]);
+	dev_null = get_dev_null(entradas[numero_entradas - 1]);
 
 	num_pipes = numero_entradas - 1;
 	num_funciones = numero_entradas;
-	fprintf(stderr, "ULTIMA COSA: %s\n", entradas[numero_entradas-1]);
 	int **pipes = (int**)malloc((num_pipes)* sizeof(int *));
 	int *childs = (int*)malloc((num_funciones)* sizeof(int));
 	crear_pipes(pipes, num_pipes);
 	
 	for (int i = 0; i < num_funciones; i++){
     	childs[i] = fork(); 
+		
 		switch(childs[i]){
 			case -1:
 				err(EXIT_FAILURE, "fork failed");
 			case 0:
-
 				if(i == 0 ) {
-					if (fichero_entrada.restante != NULL && fichero_entrada.fd != 1){
-						int a;
-					}
 					pipe_inicial(pipes, i, num_pipes);
 				}else if (i == num_pipes){
-					pipe_final(pipes, i);
 					if (fichero_salida.restante != NULL && fichero_salida.fd != 1){
-						int a;
+						
+						get_command(copia_salida);
+						snprintf(entradas[i], strlen(copia_salida)+1, "%s", copia_salida);
 					}
-					dev_null = get_dev_null(entradas[i]);
-
+					
 					if (strcmp(dev_null.restante, entradas[i]) != 0){
 						dup2(dev_null.fd, WRITE_END);
 					}
+					pipe_final(pipes, i);
 				}else {
 					pipes_intermedios(pipes, i, num_pipes);
 				}
+				cerrar_descriptores(dev_null.fd, fichero_entrada.fd, fichero_salida.fd);
 				exec_comando(entradas[i]);
+			default:
+				if (i == 0){
+					if (fichero_entrada.restante != NULL && fichero_entrada.fd != 1){
+						copy(fichero_entrada.fd, pipes[i][WRITE_END]);
+						cerrar_descriptores(dev_null.fd, fichero_entrada.fd, fichero_salida.fd);
+					}
+				}
+				if (i == num_pipes){
+					if (fichero_salida.restante != NULL && fichero_salida.fd != 1){
+						fprintf(stderr, "HOLA SOY PADRE SALIDA\n");
+						//dup2(pipes[i-1][READ_END], fichero_salida.fd); 
+						copy(pipes[i-1][READ_END], fichero_salida.fd); 
+					}	
+				}
 		}
 	}
+	
 	for (int i = 0; i < num_pipes; i++){
-		close(pipes[i][0]);
-		close(pipes[i][1]);
+		if(close(pipes[i][0]) < 0){
+			perror("Error al cerrar fichero pipes[0]\n");
+		}
+		if(close(pipes[i][1]) < 0){
+			perror("Error al cerrar fichero pipes[1]\n");
+		}
 	}
+	
 	for (int i = 0; i < num_funciones; i++){
 		pid = waitpid(childs[i], &status, 0);
+		fprintf(stderr, "fahosdfauisdf\n");
 		if (pid == -1) {
 			perror("waitpid");
 			exit(EXIT_FAILURE);
 		}
 	}
 	
+	
 	//Liberamos toda la memoria utilizada
-	liberar_pipes(pipes, numero_entradas - 2);
+	liberar_pipes(pipes, num_pipes);
 	free(pipes);
 	free(childs);
 }
@@ -561,8 +580,9 @@ init_pipelines(char * lineas_pipes)
 	char **argumentos = (char**)malloc(num_pipes*sizeof(char *));
 	
 	crear_string(lineas_pipes, argumentos, num_pipes, separar_pipes);
-
+	
 	pipelines(num_pipes, argumentos);
+	
 	liberar_argumentos(argumentos, num_pipes);
 	free(argumentos);
 }
@@ -605,6 +625,7 @@ mirar_utilidad(char *buff)
 		
 		//fprintf(stderr, "MODO PIPES\n");
 		init_pipelines(buffer_real);
+		
 	}else {
 		builtin_copy = builtin;
 		token_1 = strtok_r(builtin_copy, " ", &builtin_copy);
@@ -631,7 +652,7 @@ main(int argc, char *argv[])
         char buf[MAX_STDIN];
 		printf("<> ");
         fgets(buf, MAX_STDIN, stdin);
-
 		mirar_utilidad(buf);
+		
     }
 }
