@@ -1,1 +1,4 @@
-echo olaº
+echo ola
+ls
+ps aux | grep u | wc -l
+cd ../

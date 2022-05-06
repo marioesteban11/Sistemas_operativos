@@ -15,7 +15,6 @@ enum {
 	MAX_STDIN = 100,
 	TOKENS = 20,
 	MAX_COMANDO = 200,
-	NUMERO_RUTAS = 2,
 
 	READ_END = 0,
 	WRITE_END = 1,
@@ -88,6 +87,7 @@ copy(int desc_entrada, int desc_salida)
 		}
 
 	}
+	
 	return total;
 }
 
@@ -134,11 +134,13 @@ get_dev_null(char * script)
 	final_fichero = strrchr(script, dev);
 	int fd = 1;
 	token = strtok_r(rest, dev_pointer, &rest);
+	token = strtok_r(rest, ">", &rest);
+	token = strtok_r(rest, "<", &rest);
 	if (final_fichero != NULL) {
 		fd = open("/dev/null", O_WRONLY , 0664);
 		snprintf(dev_null.restante, MAX_COMANDO, "%s", dev_pointer);
 		if (fd == -1){
-			fprintf(stderr, "error al abrir el fichero dev_null\n");
+			fprintf(stderr, "error al abrir el fichero dev_null");
 		}
 	}else {
 		snprintf(dev_null.restante, MAX_COMANDO, "%s", token);
@@ -166,11 +168,11 @@ detect_fichero_salida(char *script)
 	token = strtok_r(rest, dev_pointer, &rest);
 	token = strtok_r(rest, " ", &rest);
 	int fd = 1;
-
+	//fprintf(stderr, "NOMBRE salida:%s\n\n", token);
 	if (final_fichero != NULL) {
 		fd = open(token, O_WRONLY |O_CREAT | O_TRUNC, 0664);
 		if (fd < 0){
-			fprintf(stderr, "error al abrir el fichero de salida\n ");
+			fprintf(stderr, "error al abrir el fichero de salida\n");
 		}
 	}
 	fichero.fd = fd;
@@ -193,8 +195,9 @@ detect_fichero_entrada(char *script)
 	token = strtok_r(rest, dev_pointer, &rest);
 	token = strtok_r(rest, " ", &rest);
 	int fd = 1;
+	//fprintf(stderr, "NOMBRE FICHERO ENTRADA:%s y el token: %s\n\n", script, token);
 	if (final_fichero != NULL){
-		fd = open(token, O_RDONLY);
+		fd = open(token, O_CREAT | O_RDONLY);
 		//fprintf(stderr, "fd salida: %d, con token: %s\n", fd, token);
 		if (fd == -1){
 			fprintf(stderr, "error al abrir el fichero de entrada\n");
@@ -240,7 +243,7 @@ exec_comando(char *script)
 	char *path, separar_path[2] = ":";
 	path = getenv("PATH");
 	int num_paths = 0;
-
+	
 	num_paths = get_num_tokens(path, separar_path);
     //printf("%s\n", path);
     char **lista_path = (char**)malloc(num_paths*sizeof(char*));
@@ -301,7 +304,7 @@ exec_comando(char *script)
 	
 	liberar_argumentos(lista_path, num_paths);
 
-	// fprintf(stderr, "RUTA_BIN:%s RUTA USR: \n", ruta_especifica);
+	//fprintf(stderr, "RUTA_BIN:%s RUTA USR: \n", ruta_especifica);
 	execv(ruta_especifica, final_ejecucion);
 }
 
@@ -343,6 +346,7 @@ fork_comandos(char *comandos )
 	fichero_salida = detect_fichero_salida(copia_salida);
 	fichero_entrada = detect_fichero_entrada(copia_entrada);
 
+	//fprintf(stderr, "DEV_NULL: %s y %d, fichero_entrada: %s y %d,  fichero_salida: %s y %d,\n",dev_null.restante, dev_null.fd, fichero_entrada.restante, fichero_entrada.fd, fichero_salida.restante, fichero_salida.fd );
 
 	if(pipe(fd) < 0){
 		err(EXIT_FAILURE, "cannot make a pipe");
@@ -382,7 +386,6 @@ fork_comandos(char *comandos )
 		{
 			dup2(dev_null.fd, WRITE_END);
 		}
-		
 		exec_comando(comandos);
 		err(1, "exec failed");
 	default:
@@ -482,29 +485,46 @@ pipelines(int numero_entradas, char ** entradas)
 {
 	int status, num_pipes, num_funciones;
 	int pid;
+	int fd_salida[2], fd_entrada[2];
 	struct redireccion dev_null;
 	struct redireccion fichero_salida;
 	struct redireccion fichero_entrada;
 	int longitud_ult_elem = strlen(entradas[numero_entradas-1]);
 
-	char copia_entrada[longitud_ult_elem]; 
-	char copia_salida[longitud_ult_elem];
-
-	snprintf(copia_salida, longitud_ult_elem+1, "%s", entradas[numero_entradas-1]);
-	snprintf(copia_entrada, longitud_ult_elem+1, "%s", entradas[numero_entradas-1]);
-	fichero_entrada = detect_fichero_entrada(entradas[numero_entradas-1]);
-	fichero_salida = detect_fichero_salida(entradas[numero_entradas-1]);
-	dev_null = get_dev_null(entradas[numero_entradas - 1]);
-
 	num_pipes = numero_entradas - 1;
 	num_funciones = numero_entradas;
+	//fprintf(stderr, "ENTRADA %d \n", numero_entradas);
+	//for (int i = 0; i < num_funciones; i++){
+	//	fprintf(stderr, "ENTRADA %d : %s\n", i, entradas[i]);
+	//}
+
+	char copia_entrada[longitud_ult_elem]; 
+	char copia_salida[longitud_ult_elem];
+	//char copia_dev_null[longitud_ult_elem];
+	//fprintf(stderr, "ULTIMA ENTRADA: %s\n", entradas[numero_entradas-1]);
+	snprintf(copia_salida, longitud_ult_elem+1, "%s", entradas[numero_entradas-1]);
+	snprintf(copia_entrada, longitud_ult_elem+1, "%s", entradas[numero_entradas-1]);
+	fichero_entrada = detect_fichero_entrada(copia_entrada);
+	fichero_salida = detect_fichero_salida(copia_salida);
+	dev_null = get_dev_null(entradas[numero_entradas - 1]);
+
+
+	fprintf(stderr, "DEV_NULL: %s y %d, fichero_entrada: %s y %d,  fichero_salida: %s y %d,\n",dev_null.restante, dev_null.fd, fichero_entrada.restante, fichero_entrada.fd, fichero_salida.restante, fichero_salida.fd );
+	//fprintf(stderr, "ENtrada restante : %s\n", entradas[numero_entradas - 1]);
+	
 	int **pipes = (int**)malloc((num_pipes)* sizeof(int *));
 	int *childs = (int*)malloc((num_funciones)* sizeof(int));
 	crear_pipes(pipes, num_pipes);
+
+	if(pipe(fd_salida) < 0){
+		err(EXIT_FAILURE, "cannot make a pipe");
+	}
+	if(pipe(fd_entrada) < 0){
+		err(EXIT_FAILURE, "cannot make a pipe");
+	}
 	
 	for (int i = 0; i < num_funciones; i++){
     	childs[i] = fork(); 
-		
 		switch(childs[i]){
 			case -1:
 				err(EXIT_FAILURE, "fork failed");
@@ -529,21 +549,25 @@ pipelines(int numero_entradas, char ** entradas)
 						get_command(copia_salida);
 						snprintf(entradas[i], strlen(copia_salida)+1, "%s", copia_salida);
 						dup2(fichero_salida.fd, WRITE_END);
-					}
-					if (strcmp(dev_null.restante, entradas[i]) != 0){
-						dup2(dev_null.fd, WRITE_END);
 					}else if(fichero_entrada.restante != NULL && fichero_entrada.fd != 1){
 						get_command(copia_salida);
 						snprintf(entradas[i], strlen(copia_salida)+1, "%s", copia_salida);
 					}
+					if (strcmp(dev_null.restante, entradas[i]) != 0){
+						dup2(dev_null.fd, WRITE_END);
+					}
 					pipe_final(pipes, i);
+					
 				}else {
 					pipes_intermedios(pipes, i, num_pipes);
 				}
-				cerrar_descriptores(dev_null.fd, fichero_entrada.fd, fichero_salida.fd);
+				cerrar_descriptores(dev_null.fd, 1, fichero_salida.fd);
+				//fprintf(stderr, "JUSTO ANTES EXEC: %s\n", entradas[i]);
 				exec_comando(entradas[i]);
+				perror("exec pipes failed");
 		}
 	}
+	
 	cerrar_descriptores(dev_null.fd, fichero_entrada.fd, fichero_salida.fd);
 	for (int i = 0; i < num_pipes; i++){
 		if(close(pipes[i][0]) < 0){
@@ -606,18 +630,25 @@ mirar_utilidad(char *buff)
 	int longitud = strlen(buff);
 	char *rest_1, buffer_mandar[longitud], buffer_real[longitud], buffer_copia[longitud], builtin[longitud]; 
 	char *rest_2, *token_1, *token_2, *builtin_copy;
-
-	snprintf(buffer_mandar, longitud, "%s", buff);
-	snprintf(buffer_real, longitud, "%s", buff);
-	snprintf(buffer_copia, longitud, "%s", buff);
-	snprintf(builtin, longitud, "%s", buff);
-	//strcat(buffer_mandar, "\n");
-	//strcat(buffer_real, "\n");
+	
+	snprintf(buffer_mandar, longitud+1, "%s", buff);
+	snprintf(buffer_real, longitud+1, "%s", buff);
+	snprintf(buffer_copia, longitud+1, "%s", buff);
+	snprintf(builtin, longitud+1, "%s", buff);
+	
 	rest_1 = buffer_copia;
 	token_1 = strtok_r(rest_1, "=", &rest_1);
+	
 	rest_2 = buffer_mandar;
 	token_2 = strtok_r(rest_2, "|", &rest_2);
-	
+
+	if (token_1 == NULL){
+		token_1 = " ";
+	}
+	if (token_2 == NULL){
+		token_2 = " ";
+	}
+
 	if (strcmp(token_1, buffer_real) != 0){
 		//fprintf(stderr, "Estamos en un modo de asignar variables de estado\n");
 		set_variables_entorno(buffer_real);
@@ -627,6 +658,7 @@ mirar_utilidad(char *buff)
 		init_pipelines(buffer_real);
 		
 	}else {
+		
 		builtin_copy = builtin;
 		token_1 = strtok_r(builtin_copy, " ", &builtin_copy);
 		token_2 = strtok_r(builtin_copy, " ", &builtin_copy);
@@ -637,6 +669,7 @@ mirar_utilidad(char *buff)
 				change_directory(token_2);
 			}
 		}else {
+			
 			//fprintf(stderr, "COMANDOS NORMALES\n");
 			fork_comandos(buffer_real);
 		}
@@ -647,11 +680,13 @@ mirar_utilidad(char *buff)
 int
 main(int argc, char *argv[])
 {
-	while(1)
+	char buf[MAX_STDIN];
+	fprintf(stderr, "<> ");
+	while(fgets(buf, MAX_STDIN, stdin))
     {
-        char buf[MAX_STDIN];
-		printf("<> ");
-        fgets(buf, MAX_STDIN, stdin);
+        
+		printf( "<> ");
+        //fgets(buf, MAX_STDIN, stdin);
 		mirar_utilidad(buf);
 		
     }

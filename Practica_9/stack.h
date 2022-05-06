@@ -3,6 +3,7 @@ typedef struct{
     int elemSize;
     int logLength;
     int allocLength;
+    //crear cerrojo aqui dentro
 }stack;
 
 pthread_mutex_t create;

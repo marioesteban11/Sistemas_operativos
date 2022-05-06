@@ -46,7 +46,12 @@ get_command(char *script) {
     }
 }
 
-
+int to_read = SIZE;
+char buf[SIZE];
+fprintf(stderr, "HOLA ANTES\n");
+read(fd_salida[READ_END], buf, to_read);
+fprintf(stderr, "buf: %s\n", buf);
+fprintf(stderr, "HOLA DESPUES\n");
 int
 main(int argc, char *argv[])
 {    
