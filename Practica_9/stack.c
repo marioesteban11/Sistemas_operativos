@@ -13,8 +13,9 @@
 
 stack* create_stack(int max_size, int elemSize)
 {
-	pthread_mutex_lock(&create);
+	
 	stack *s = malloc(sizeof(stack));
+	pthread_mutex_lock(&s->mutex);
 	assert(elemSize > 0);
 	s->elemSize = elemSize;
 	s->logLength = 0;
@@ -23,7 +24,7 @@ stack* create_stack(int max_size, int elemSize)
 	assert(s->elems != NULL);
 	
 	
-	pthread_mutex_unlock(&create);
+	pthread_mutex_unlock(&s->mutex);
 	return s;
 }
 
@@ -45,7 +46,7 @@ int number_elements(stack *s){
 
 void push(stack *s, const void *elemAddr)
 {
-	pthread_mutex_lock(&push_stack);
+	pthread_mutex_lock(&s->mutex);
 	void *destAddr;
 	if(s->logLength == s->allocLength){
 		s->allocLength *= 2;
@@ -57,18 +58,18 @@ void push(stack *s, const void *elemAddr)
 	memcpy(destAddr, elemAddr, s->elemSize);
 	s->logLength++;
 	//fprintf(stderr, "LOG LENGTH %d\n", s->logLength);
-	pthread_mutex_unlock(&push_stack);
+	pthread_mutex_unlock(&s->mutex);
 }
 
 void pop(stack *s, void *elemAddr)
 {
-	pthread_mutex_lock(&pop_stack);
+	pthread_mutex_lock(&s->mutex);
 	const void *sourceAddr;
 	assert(!is_empty(s));
 	s->logLength--;
 	sourceAddr = (const char *)s->elems + s->logLength * s->elemSize;
 	memcpy(elemAddr, sourceAddr, s->elemSize);
-	pthread_mutex_unlock(&pop_stack);
+	pthread_mutex_unlock(&s->mutex);
 }
 
 

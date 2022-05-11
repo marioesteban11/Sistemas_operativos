@@ -20,31 +20,34 @@ enum {
 };
 
 pthread_mutex_t mutex;
+valor stack_valor; 
+stack *intStack;
+
 
 void *fn(void *p)
 {
-	
 	int max_size = 50;
 	int id;
-	stack *intStack;
+	
 	//valor *stack_valor; 
 	id = *(int*)p;
 	intStack = create_stack( max_size, sizeof(int));
-	//fprintf(stderr, "HILO :%d\n", id);
-	//stack_valor->id = id;
+	stack_valor.id = id;
+	//fprintf(stderr, "HILO :%d\n", stack_valor.id);
+	
 	for(int val = 0; val < 10; val++){
 		push(intStack, &val);
 	}
-
-	for(int i = 5; i >= 0; i--){
+	
+	for(int i = 4; i >= 0; i--){
 		pop(intStack, &i);
-		printf("Value Poped: %d from thread: %d\n", i, id);
+		
+		if (stack_valor.id != id){
+			fprintf(stderr, "Poped value: %d del hilo %d, y el stack_valor: %d\n", i, id, stack_valor.id);
+		}
 	}
 
-	pthread_mutex_lock(&push_stack);
-	printf("Elementos restantes: %d, del hilo: %d\n", number_elements(intStack), id);
-	pthread_mutex_unlock(&push_stack);
-	free_stack(intStack);
+	//free_stack(intStack);
 	
 	return NULL;
 }
@@ -55,6 +58,7 @@ main(int argc, char *argv[])
 	pthread_t thread[Nthreads];
 	int n_threads[Nthreads];
 	int i;
+	int counter = 0;
 	for(i = 0; i < Nthreads; i++){
 		n_threads[i] = i;
 		if(pthread_create(&thread[i], NULL, fn, (void *) &n_threads[i])) {
@@ -70,6 +74,14 @@ main(int argc, char *argv[])
 		}
 	}
 
+	for (int j = 0; j < intStack->logLength;j++ ){
+		counter++;
+	}
+	if (counter == 6*10){
+		printf("Buen resultado\n");
+	}else {
+		printf("Mal resultado. EL resultado es %d y tendría que ser %d\n", counter, 60*100);
+	}
    	
 	exit(EXIT_SUCCESS);
 }

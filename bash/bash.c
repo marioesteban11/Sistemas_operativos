@@ -46,15 +46,17 @@ void liberar_pipes(int ** pipes, int numero_pipes){
 int 
 get_num_tokens(char *path, char *separacion)
 {
+	fprintf(stderr, "STRING QUE LLEGA :%s, y lo que hay que separar:   %s\n", path, separacion);
     char * rest_1, *token;
     int longitud = strlen(path), num_tokens = 0;
     char copia_1[longitud];
     snprintf(copia_1, longitud+1, "%s", path);
     rest_1 = copia_1;
-
+	fprintf(stderr, "\nREST: %s\n", strtok_r(rest_1, separacion, &rest_1));
     while ((token = strtok_r(rest_1, separacion, &rest_1))) {
 		num_tokens++;
 	}
+
     return num_tokens;
 }
 
@@ -161,12 +163,14 @@ detect_fichero_salida(char *script)
 	char dev = '>';
 	char *dev_pointer = ">";
 
-	final_fichero = strrchr(script, dev);
 
+	final_fichero = strrchr(script, dev);
+	//fprintf(stderr, "LO QUE ENTRA EN SALIDA:%s\n", script);
 	token = strtok_r(rest, dev_pointer, &rest);
 	token = strtok_r(rest, " ", &rest);
+	
 	int fd = 1;
-
+	//fprintf(stderr, "TOKENSITO: %s\n", token);
 	if (final_fichero != NULL) {
 		fd = open(token, O_WRONLY |O_CREAT | O_TRUNC, 0664);
 		if (fd < 0){
@@ -237,15 +241,23 @@ exec_comando(char *script)
 	char *rest = script, *token;
 	int iterator = 0;
 	char ruta_especifica [MAX_COMANDO];
-	char *path, separar_path[2] = ":";
+	char *path; 
+	char separar_path[2] = ":";
 	path = getenv("PATH");
 	int num_paths = 0;
 
 	num_paths = get_num_tokens(path, separar_path);
     //printf("%s\n", path);
     char **lista_path = (char**)malloc(num_paths*sizeof(char*));
-
+	//fprintf(stderr, "script\t%s\n", script);
 	crear_string(path, lista_path, num_paths, separar_path);
+
+	//fprintf(stderr, "Num paths %d\n", num_paths);
+	//for (int i = 0; i < num_paths; i++){
+	//	fprintf(stderr, "lista path[%d]: %s\n", i, lista_path[i]);
+	//}
+
+
 	while ((token = strtok_r(rest, " ", &rest))) {
 		
 		//printf("%s ", rest);
@@ -257,9 +269,7 @@ exec_comando(char *script)
 				for (int i = 1; i < strlen(token); i++){
 					eliminado[i-1] = token[i];
 				}
-
 				if (getenv(eliminado) != NULL){
-					
 					for (int i = 0; i < num_paths; i ++){
 						snprintf(ruta_especifica, MAX_COMANDO, "%s/%s", lista_path[i], getenv(eliminado));
 						
@@ -271,7 +281,9 @@ exec_comando(char *script)
 					fprintf(stderr, "error: var %s does not exist\n", eliminado);
 				}
 			}else {
+				
 				for (int i = 0; i < num_paths; i ++){
+					//fprintf(stderr, "SCRIPT dentro: %s y los paths: %s\n", script, lista_path[i]);
 					snprintf(ruta_especifica, MAX_COMANDO, "%s/%s", lista_path[i], token);
 					
 					if (access(ruta_especifica, R_OK) == 0){
@@ -301,7 +313,7 @@ exec_comando(char *script)
 	
 	liberar_argumentos(lista_path, num_paths);
 
-	// fprintf(stderr, "RUTA_BIN:%s RUTA USR: \n", ruta_especifica);
+	//fprintf(stderr, "RUTA_BIN:%s RUTA USR: \n", ruta_especifica);
 	execv(ruta_especifica, final_ejecucion);
 }
 
@@ -492,10 +504,10 @@ pipelines(int numero_entradas, char ** entradas)
 
 	snprintf(copia_salida, longitud_ult_elem+1, "%s", entradas[numero_entradas-1]);
 	snprintf(copia_entrada, longitud_ult_elem+1, "%s", entradas[numero_entradas-1]);
-	fichero_entrada = detect_fichero_entrada(entradas[numero_entradas-1]);
-	fichero_salida = detect_fichero_salida(entradas[numero_entradas-1]);
+	fichero_entrada = detect_fichero_entrada(copia_entrada);
+	fichero_salida = detect_fichero_salida(copia_salida);
 	dev_null = get_dev_null(entradas[numero_entradas - 1]);
-
+	fprintf(stderr, "FICHERO entrada: %s con fd: %d y cosas salida: %s y %d\n", fichero_entrada.restante, fichero_entrada.fd, fichero_salida.restante, fichero_salida.fd);
 	num_pipes = numero_entradas - 1;
 	num_funciones = numero_entradas;
 	int **pipes = (int**)malloc((num_pipes)* sizeof(int *));
@@ -504,7 +516,6 @@ pipelines(int numero_entradas, char ** entradas)
 	
 	for (int i = 0; i < num_funciones; i++){
     	childs[i] = fork(); 
-		
 		switch(childs[i]){
 			case -1:
 				err(EXIT_FAILURE, "fork failed");
@@ -517,6 +528,7 @@ pipelines(int numero_entradas, char ** entradas)
 							close(pipes[j][READ_END]);
 							close(pipes[j][WRITE_END]);
 						}
+						
 						dup2(fichero_entrada.fd, READ_END);
 						close(pipes[i][READ_END]);
 						dup2(pipes[i][WRITE_END], STDOUT_FILENO); 
@@ -540,6 +552,8 @@ pipelines(int numero_entradas, char ** entradas)
 				}else {
 					pipes_intermedios(pipes, i, num_pipes);
 				}
+						fprintf(stderr, "bon voyage\n");
+
 				cerrar_descriptores(dev_null.fd, fichero_entrada.fd, fichero_salida.fd);
 				exec_comando(entradas[i]);
 		}
@@ -591,9 +605,25 @@ init_pipelines(char * lineas_pipes)
 void 
 change_directory(char * directorio){
     int error;
-  
+	char eliminado[strlen(directorio)   -   1];
+	fprintf(stderr, "askodfoasdfa dfa sd: %ld y ek otro %ld\n", strlen(eliminado), strlen(directorio));
+
     // using the command
-    error = chdir(directorio);
+	if (directorio[0] == '$'){
+		
+		for (int i = 1; i < strlen(directorio); i++){
+			eliminado[i-1] = directorio[i];
+		}
+		fprintf(stderr, "ELIMINADO: %s y tamaño: %ld\n", eliminado, strlen(eliminado));
+		if (getenv(eliminado) != NULL){
+			error = chdir(eliminado);
+		}else {
+			perror("no se pudo cambiar de directorio");
+		}
+	}else {
+		error = chdir(directorio);
+	}
+    
     if (error != 0 ){
         perror("chdir failed");
     }
@@ -617,7 +647,12 @@ mirar_utilidad(char *buff)
 	token_1 = strtok_r(rest_1, "=", &rest_1);
 	rest_2 = buffer_mandar;
 	token_2 = strtok_r(rest_2, "|", &rest_2);
-	
+	if (token_1 == NULL){
+		token_1 = "a";
+	}
+	if (token_2 == NULL){
+		token_2 = "a";
+	}
 	if (strcmp(token_1, buffer_real) != 0){
 		//fprintf(stderr, "Estamos en un modo de asignar variables de estado\n");
 		set_variables_entorno(buffer_real);

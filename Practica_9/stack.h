@@ -3,12 +3,8 @@ typedef struct{
     int elemSize;
     int logLength;
     int allocLength;
-    //crear cerrojo aqui dentro
+    pthread_mutex_t mutex;
 }stack;
-
-pthread_mutex_t create;
-pthread_mutex_t push_stack;
-pthread_mutex_t pop_stack;
 
 stack* create_stack( int max_size, int elemSize);
 void free_stack(stack *s);
