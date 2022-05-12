@@ -23,7 +23,6 @@ stack* create_stack(int max_size, int elemSize)
 	s->elems = malloc(max_size * elemSize);
 	assert(s->elems != NULL);
 	
-	
 	pthread_mutex_unlock(&s->mutex);
 	return s;
 }
@@ -71,13 +70,3 @@ void pop(stack *s, void *elemAddr)
 	memcpy(elemAddr, sourceAddr, s->elemSize);
 	pthread_mutex_unlock(&s->mutex);
 }
-
-
-
-//void recorrer_stack(stack *s)
-//{
-//	for (int i = 0; i < s->logLength; i++){
-//		fprintf(stderr, "%d \t", s->elems[i]);
-//	}
-//
-//}
