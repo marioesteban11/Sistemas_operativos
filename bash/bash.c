@@ -27,7 +27,7 @@ struct redireccion
 	char restante[MAX_COMANDO];
 };
 
-
+//Libera todos los strings que hemos creado con malloc
 void 
 liberar_argumentos(char ** argumentos, int numero)
 {
@@ -36,23 +36,24 @@ liberar_argumentos(char ** argumentos, int numero)
 	}
 }
 
-
+//Libera todos los ints que hemos creado con malloc
 void liberar_pipes(int ** pipes, int numero_pipes){
 	for (int i = 0; i < numero_pipes; i++){
 		free(pipes[i]);
 	}
 }
-
+// Dada un string nos indica el numero de tokens que tiene esta string grande por medio de un parametro:
+// Por ejemplo: echo ola juan carlos , lo queremos separar por espacios " ", entonces la funcuon devolveria 4
 int 
 get_num_tokens(char *path, char *separacion)
 {
-	fprintf(stderr, "STRING QUE LLEGA :%s, y lo que hay que separar:   %s\n", path, separacion);
+	//fprintf(stderr, "STRING QUE LLEGA :%s, y lo que hay que separar:   %s\n", path, separacion);
     char * rest_1, *token;
     int longitud = strlen(path), num_tokens = 0;
     char copia_1[longitud];
     snprintf(copia_1, longitud+1, "%s", path);
     rest_1 = copia_1;
-	fprintf(stderr, "\nREST: %s\n", strtok_r(rest_1, separacion, &rest_1));
+	//fprintf(stderr, "\nREST: %s\n", strtok_r(rest_1, separacion, &rest_1));
     while ((token = strtok_r(rest_1, separacion, &rest_1))) {
 		num_tokens++;
 	}
@@ -60,6 +61,7 @@ get_num_tokens(char *path, char *separacion)
     return num_tokens;
 }
 
+// Copia lo recibido por el descriptor de entrada y lo escribe por la salida.
 int
 copy(int desc_entrada, int desc_salida)
 {
@@ -93,6 +95,7 @@ copy(int desc_entrada, int desc_salida)
 	return total;
 }
 
+// Una vez sabemos la cantidad de tokens que tiene la string grande, podemos hacer un char** de esos tokens
 void
 crear_string(char *path, char **lista_path, int num_pipes, char *separacion)
 {
@@ -116,13 +119,17 @@ void set_variables_entorno(char * expresion){
     char* token;
     char* rest = expresion;
 	char * enviroment;
- 
 	token = strtok_r(rest, "=", &enviroment);
+	if (token[strlen(token)-1] == ' ' || enviroment[0] == ' '){
+		fprintf(stderr, "Error no se ejecuto bien la orden\n");
+	}else {
+		setenv(token, enviroment, 1);
+	}
 
-	setenv(token, enviroment, 1);
+	
 }
 
-
+// Nos da el desciptor de fichero de dev null, y la string inicial sin el & (si lo tuviera)
 struct redireccion 
 get_dev_null(char * script)
 {
@@ -152,7 +159,7 @@ get_dev_null(char * script)
 }
 
 
-
+// Nos da el desciptor de fichero del fichero de salida, y la string del fichero (si lo tuviera)
 struct redireccion
 detect_fichero_salida(char *script)
 {
@@ -183,6 +190,8 @@ detect_fichero_salida(char *script)
 	return fichero;
 }
 
+
+// Nos da el desciptor de fichero del fichero de entrada, y la string del fichero (si lo tuviera)
 struct redireccion
 detect_fichero_entrada(char *script)
 {
@@ -209,14 +218,13 @@ detect_fichero_entrada(char *script)
 	return fichero;
 }
 
+
+// Modifica el script para que se quede sin ninguna redireccion
 void
 get_command(char *script) 
 {
-
     char *rest = script;
     int mayor = 1000, menor = 1000;
-    //token = strtok_r(rest, ">", &rest);
-    
     for (int i = 0; i < strlen(script); i++)
     {
         if (script[i] == '<'){
@@ -233,6 +241,8 @@ get_command(char *script)
     }
 }
 
+
+//Ejecuta el comando pedido por el usuario
 void
 exec_comando(char *script)
 {
@@ -247,16 +257,8 @@ exec_comando(char *script)
 	int num_paths = 0;
 
 	num_paths = get_num_tokens(path, separar_path);
-    //printf("%s\n", path);
     char **lista_path = (char**)malloc(num_paths*sizeof(char*));
-	//fprintf(stderr, "script\t%s\n", script);
 	crear_string(path, lista_path, num_paths, separar_path);
-
-	//fprintf(stderr, "Num paths %d\n", num_paths);
-	//for (int i = 0; i < num_paths; i++){
-	//	fprintf(stderr, "lista path[%d]: %s\n", i, lista_path[i]);
-	//}
-
 
 	while ((token = strtok_r(rest, " ", &rest))) {
 		
@@ -269,6 +271,7 @@ exec_comando(char *script)
 				for (int i = 1; i < strlen(token); i++){
 					eliminado[i-1] = token[i];
 				}
+				fprintf(stderr, "HOLA SOY MODIFICACION: %s y su getenv: %s\n", eliminado, getenv(eliminado));
 				if (getenv(eliminado) != NULL){
 					for (int i = 0; i < num_paths; i ++){
 						snprintf(ruta_especifica, MAX_COMANDO, "%s/%s", lista_path[i], getenv(eliminado));
@@ -317,6 +320,8 @@ exec_comando(char *script)
 	execv(ruta_especifica, final_ejecucion);
 }
 
+
+// Cierra si es necesario los descriptores de ficheros de las redirecciones
 void
 cerrar_descriptores(int dev_null, int fichero_entrada, int fichero_salida)
 {
@@ -336,7 +341,10 @@ cerrar_descriptores(int dev_null, int fichero_entrada, int fichero_salida)
 		}
 	}
 }
-//Creamos un proceso hijo y esperamos a que este muera para crear otro hijo
+
+//Creamos un proceso hijo y esperamos a que este muera para crear otro hijo para poder ejecutar los comandos normales
+// Por ej: echo ola, ls, cat...
+// Tambien tenemos en cuenta las redirecciones
 void
 fork_comandos(char *comandos )
 {
@@ -442,6 +450,7 @@ crear_pipes(int **pipes, int numero_pipes){
 	}
 }
 
+// Cerramos los pipes no necesarios y duplicamos la entrada
 void 
 pipe_inicial(int **pipes, int i, int numero_pipes)
 {
@@ -453,7 +462,7 @@ pipe_inicial(int **pipes, int i, int numero_pipes)
 	dup2(pipes[i][WRITE_END], STDOUT_FILENO); 
 	close(pipes[i][WRITE_END]);
 }
-
+// Cerramos los pipes no necesarios y duplicamos la salida
 void 
 pipe_final(int ** pipes, int i)
 {
@@ -467,7 +476,7 @@ pipe_final(int ** pipes, int i)
 	close(pipes[i-1][READ_END]);
 }
 
-
+// Cerramos los pipes no necesarios y duplicamos la entrada y salida del pipe oportuno
 void
 pipes_intermedios(int ** pipes, int i, int numero_pipes)
 {
@@ -488,7 +497,8 @@ pipes_intermedios(int ** pipes, int i, int numero_pipes)
 	}
 }
 
-
+// Funcion para resolver el problema de los pipes, en la que los crea y se destribuyen las tareas y las entradas salidas correspondientes
+// Tambien tenemos las redirecciones a otros ficheros con el <, > y &
 void
 pipelines(int numero_entradas, char ** entradas)
 {
@@ -552,8 +562,6 @@ pipelines(int numero_entradas, char ** entradas)
 				}else {
 					pipes_intermedios(pipes, i, num_pipes);
 				}
-						fprintf(stderr, "bon voyage\n");
-
 				cerrar_descriptores(dev_null.fd, fichero_entrada.fd, fichero_salida.fd);
 				exec_comando(entradas[i]);
 		}
@@ -583,6 +591,8 @@ pipelines(int numero_entradas, char ** entradas)
 	free(childs);
 }
 
+
+// Inicializamos todo lo necesario para poder trabajar despues con los pipes
 void 
 init_pipelines(char * lineas_pipes)
 {
@@ -601,12 +611,12 @@ init_pipelines(char * lineas_pipes)
 	free(argumentos);
 }
 
-
+// Para el bultin de cd.
 void 
 change_directory(char * directorio){
     int error;
-	char eliminado[strlen(directorio)   -   1];
-	fprintf(stderr, "askodfoasdfa dfa sd: %ld y ek otro %ld\n", strlen(eliminado), strlen(directorio));
+	int longitud = strlen(directorio);
+	char eliminado[longitud];
 
     // using the command
 	if (directorio[0] == '$'){
@@ -614,9 +624,8 @@ change_directory(char * directorio){
 		for (int i = 1; i < strlen(directorio); i++){
 			eliminado[i-1] = directorio[i];
 		}
-		fprintf(stderr, "ELIMINADO: %s y tamaño: %ld\n", eliminado, strlen(eliminado));
 		if (getenv(eliminado) != NULL){
-			error = chdir(eliminado);
+			error = chdir(getenv(eliminado));
 		}else {
 			perror("no se pudo cambiar de directorio");
 		}
@@ -630,6 +639,7 @@ change_directory(char * directorio){
 
 }
 
+// Organizamos la entrada que nos da el usuario
 void 
 mirar_utilidad(char *buff)
 {
@@ -682,12 +692,14 @@ mirar_utilidad(char *buff)
 int
 main(int argc, char *argv[])
 {
-	while(1)
+	printf("<> ");
+	char buf[MAX_STDIN];
+	while(fgets(buf, MAX_STDIN, stdin))
     {
-        char buf[MAX_STDIN];
-		printf("<> ");
-        fgets(buf, MAX_STDIN, stdin);
-		mirar_utilidad(buf);
+       
 		
+        //fgets(buf, MAX_STDIN, stdin);
+		mirar_utilidad(buf);
+		fprintf(stderr, "<> ");
     }
 }

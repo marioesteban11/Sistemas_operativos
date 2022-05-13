@@ -1,4 +1,7 @@
 echo ola
 ls
 ps aux | grep u | wc -l
+ps aux | grep u | wc -l > salida
+cat | tr a-z A-Z < palabras
 cd ../
+ls
