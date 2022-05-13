@@ -7,16 +7,15 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-
 #include "stack.h"
 
 typedef struct{
-	int i;
+	int v;
 	int id;
 }valor;
 
 enum {
-	Nthreads = 10,
+	Nthreads = 100,
 };
 
 pthread_mutex_t mutex;
@@ -26,29 +25,26 @@ stack *intStack;
 
 void *fn(void *p)
 {
-	int max_size = 50;
-	int id;
 	
-	//valor *stack_valor; 
+	int id;
+	valor salida;
+
+	
 	id = *(int*)p;
-	intStack = create_stack( max_size, sizeof(int));
-	stack_valor.id = id;
+	salida.id = id;
 	//fprintf(stderr, "HILO :%d\n", stack_valor.id);
 	
-	for(int val = 0; val < 10; val++){
-		push(intStack, &val);
+	for(int val = 0; val < 100; val++){
+		salida.v = val;
+		push(intStack, &salida);
 	}
 	
-	for(int i = 4; i >= 0; i--){
-		pop(intStack, &i);
-		
-		if (stack_valor.id != id){
-			fprintf(stderr, "Poped value: %d del hilo %d, y el stack_valor: %d\n", i, id, stack_valor.id);
+	for(int i = 40; i > 0; i--){
+		pop(intStack, &salida);
+		if (salida.id != id){
+			printf("Poped value: %d del hilo: %d y seria del valor: %d\n", salida.id, salida.v, id);
 		}
 	}
-
-	//free_stack(intStack);
-	
 	return NULL;
 }
 
@@ -59,6 +55,8 @@ main(int argc, char *argv[])
 	int n_threads[Nthreads];
 	int i;
 	int counter = 0;
+	int max_size = 50;
+	intStack = create_stack( max_size, sizeof(intStack));
 	for(i = 0; i < Nthreads; i++){
 		n_threads[i] = i;
 		if(pthread_create(&thread[i], NULL, fn, (void *) &n_threads[i])) {
@@ -77,11 +75,12 @@ main(int argc, char *argv[])
 	for (int j = 0; j < intStack->logLength;j++ ){
 		counter++;
 	}
-	if (counter == 6*10){
+	if (counter == 60*100){
 		printf("Buen resultado\n");
 	}else {
 		printf("Mal resultado. EL resultado es %d y tendría que ser %d\n", counter, 60*100);
 	}
    	
+	free_stack(intStack);
 	exit(EXIT_SUCCESS);
 }
