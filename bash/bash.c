@@ -51,13 +51,16 @@ get_num_tokens(char *path, char *separacion)
     char * rest_1, *token;
     int longitud = strlen(path), num_tokens = 0;
     char copia_1[longitud];
-    snprintf(copia_1, longitud+1, "%s", path);
+    snprintf(copia_1, longitud + 1, "%s", path);
     rest_1 = copia_1;
-	//fprintf(stderr, "\nREST: %s\n", strtok_r(rest_1, separacion, &rest_1));
+	//num_tokens++;
+	//fprintf(stderr, "\nREST: %s\n",rest_1);
     while ((token = strtok_r(rest_1, separacion, &rest_1))) {
+		//fprintf(stderr, "%s || ", token);
 		num_tokens++;
+		
 	}
-
+	//fprintf(stderr, "NUM TOKENS: %d\n", num_tokens);
     return num_tokens;
 }
 
@@ -509,15 +512,25 @@ pipelines(int numero_entradas, char ** entradas)
 	struct redireccion fichero_entrada;
 	int longitud_ult_elem = strlen(entradas[numero_entradas-1]);
 
+
+
+	//for(int i = 0; i < numero_entradas; i++)
+	//{
+	//	fprintf(stderr, "%s | ", entradas[i]);
+	//}
+	//fprintf(stderr, "\n");
 	char copia_entrada[longitud_ult_elem]; 
 	char copia_salida[longitud_ult_elem];
 
+	//fprintf(stderr, "ULTIMA ENTRADA: %s y longitud: %d\n", entradas[numero_entradas-1], longitud_ult_elem);
 	snprintf(copia_salida, longitud_ult_elem+1, "%s", entradas[numero_entradas-1]);
 	snprintf(copia_entrada, longitud_ult_elem+1, "%s", entradas[numero_entradas-1]);
+	//fprintf(stderr, "y salida: %s\n", copia_salida);
 	fichero_entrada = detect_fichero_entrada(copia_entrada);
+	//fprintf(stderr, "Despues de funcion: ENTRADA :%s y salida: %s\n", copia_entrada, copia_salida);
 	fichero_salida = detect_fichero_salida(copia_salida);
 	dev_null = get_dev_null(entradas[numero_entradas - 1]);
-	fprintf(stderr, "FICHERO entrada: %s con fd: %d y cosas salida: %s y %d\n", fichero_entrada.restante, fichero_entrada.fd, fichero_salida.restante, fichero_salida.fd);
+	//fprintf(stderr, "FICHERO entrada: %s con fd: %d y cosas salida: %s y %d\n", fichero_entrada.restante, fichero_entrada.fd, fichero_salida.restante, fichero_salida.fd);
 	num_pipes = numero_entradas - 1;
 	num_funciones = numero_entradas;
 	int **pipes = (int**)malloc((num_pipes)* sizeof(int *));
@@ -696,8 +709,6 @@ main(int argc, char *argv[])
 	char buf[MAX_STDIN];
 	while(fgets(buf, MAX_STDIN, stdin))
     {
-       
-		
         //fgets(buf, MAX_STDIN, stdin);
 		mirar_utilidad(buf);
 		fprintf(stderr, "<> ");
